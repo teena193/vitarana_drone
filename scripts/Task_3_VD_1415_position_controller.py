@@ -64,9 +64,9 @@ class Position():
        self.setpoint_cmd.rcThrottle = 1500.0
 
        # settings of Kp, Ki and Kd for [latitude, longitude, altitude]
-       self.K_p = [ 6000*1000,  6000*1000, 4000*0.1]
-       self.K_i = [    10*0.1,      10*0.1, 950*0.001]
-       self.K_d = [ 3188*200000 ,3188*200000, 5000*2]
+       self.K_p = [ 3188*1000,  3188*1000, 4000*0.1]
+       self.K_i = [   3*0.1,      3*0.1, 950*0.001]
+       self.K_d = [ 5000*100000 ,5000*100000, 5000*2]
        
        # previous values of error for differential part of PID   
        # [latitude previous error, longitude previous error, altitude previous error] 
@@ -86,6 +86,10 @@ class Position():
       
        self.height_req_for_qr = 1.2
        self.box_height = 0.31
+       self.bottom_range=0.0
+       
+       self.x = 0.0
+       self.y = 0.0
       
        #publishers
        self.cmd_publish = rospy.Publisher('/drone_command',edrone_cmd,queue_size = 1)
@@ -97,8 +101,12 @@ class Position():
        rospy.Subscriber('/edrone/imu/data', Imu, self.distance)
        rospy.Subscriber('/edrone/range_finder_top' , LaserScan , self.Ranges)
        rospy.Subscriber('/edrone/gps_velocity' , Vector3Stamped , self.Velocity)
-
+       rospy.Subscriber('/edrone/range_finder_bottom' , LaserScan , self.bottom)
+       rospy.Subscriber('/edrone/coordinate_img',coordinates, self.marker_detection)
+       self.pub = rospy.Publisher('/marker_id',MarkerData,queue_size = 1)
    #defining callback_function
+       self.marker = MarkerData()
+       self.marker.marker_id =int(0)
    
    # This is a callback function to store the data published by GPS into class variables 
    def Nav_data(self,msg):
@@ -132,7 +140,18 @@ class Position():
        self.right = msg.ranges[1]
        self.back  = msg.ranges[2]
        self.left  = msg.ranges[3]
-      
+   
+   def bottom(self ,msg):
+       self.bottom_range = msg.ranges[0]
+       
+       
+   def marker_detection(self ,msg):
+       self.x = msg.x
+       self.y = msg.y
+       self.w = msg.w
+       self.h = msg.h
+         
+       #print(self.x,self.y,self.w,self.h)    
 
    def Velocity(self,msg):
        self.vel_x = msg.vector.x
@@ -234,7 +253,7 @@ class Position():
    def Obstacle_avoid(self):
        
        #checks if the distance between obstacle and drone is less than 10 then its avoids the obstacle 
-       if (self.left < 10):
+       if (self.left < 8):
            #we put this self.r variable true so if it becomes true, we can indicate to our path planner that it needs to create a new path after the obstacle is avoided 
 	   self.r = True
  	   self.stop_loc = [self.pos_current[0], self.pos_current[1], self.pos_current[2]]
@@ -245,7 +264,7 @@ class Position():
                print('Stopping')
                r.sleep()
            # while the condtion is True our drone will avoid the obstacle by using a command (here it is backward (according to the drone's orientation))
-           while (self.left < 12):
+           while (self.left < 10):
 
                self.Backward()
                r.sleep()
@@ -262,7 +281,13 @@ class Position():
                self.Stop()
                print('Stopping')
                r.sleep()
-       
+   def x_to_lat(self, input_x):
+       return (input_x / 110692.0702932625)  
+
+   def y_to_long(self, input_y):
+       return  (input_y / -105292.0089353767) 
+    # if you use this for control, you may have to change the relevant pitch   direction because of the sign
+    
     
    #A stop function that stops the drone where ever it is.
    def Stop(self):
@@ -272,7 +297,7 @@ class Position():
        self.PID(self.pos_current[0], self.pos_current[1] - self.length_btw_waypoint_longitude , self.pos_current[2])
    #A backward function so that the drone travels backward (according to drone's orientation)
    def Backward(self):
-       self.PID(self.pos_current[0] , self.pos_current[1] + self.length_btw_waypoint_longitude , self.pos_current[2])
+       self.PID(self.pos_current[0] , self.pos_current[1] + self.length_btw_waypoint_longitude , self.stop_loc[2])
    #A Right function so that the drone travels to the right (according to drone's orientation)
    def Right(self):
        self.PID(self.pos_current[0] + self.length_btw_waypoint_latitude, self.pos_current[1] , self.pos_current[2])
@@ -285,7 +310,21 @@ class Position():
    #A down function so that the drone travels down (according to drone's orientation)
    def Down(self):
        self.PID(self.pos_current[0] , self.pos_current[1] , self.pos_current[2] - 0.2)
-
+  
+   def find_marker(self):
+       # image width
+       img_width = 400
+       # Horizontal field of view 
+       hfov = 1.3962634
+       # Calculating the distance the drone will have to travel to get to the marker
+       focal_length = (img_width/2)/np.tan(hfov/2)
+       centre_x_pixel = self.x+ (self.w/2)
+       centre_y_pixel = self.y+ (self.h/2)
+       err_x_m = ((200-centre_x_pixel)*p.bottom_range)/focal_length
+       err_y_m =  ((200-centre_y_pixel)*p.bottom_range)/focal_length
+       b = p.y_to_long(err_y_m) # the distace to move in longitude
+       a = p.x_to_lat(err_x_m)  # the distace to move in latitude 
+       return b,a
 
 
 
@@ -293,88 +332,127 @@ if __name__ == '__main__':
 
     p = Position()
     r = rospy.Rate(30)
-    #the location of the box
-    box_location = [19.0007046575  ,71.9998955286 ,22.1599967919] 
-   
-    # j and k is to indicates the no. of waypoint
-    j = 1
-    k = 1
-
-    # going 1.2m up from its initial latitude
-    while not (p.pos_current[2] >= box_location[2] + p.height_req_for_qr):
-    	p.PID(p.pos_current[0], p.pos_current[1], box_location[2] + p.height_req_for_qr)     
-        r.sleep()
-        print("going up...")
-
-    #path between initial location and box location is planned 
-    p.Path_Planning(p.initial, box_location)
-
-    #uses the planned waypoints to navigate to the box
-    while  (j < (p.way_points_no + 2)):
-        p.PID(p.way_points_latitude[j], p.way_points_longitude[j], box_location[2]+ p.height_req_for_qr)
-        r.sleep()
-        print("traveling to the box location...")
-                                                                                              
-        if (p.pos_current[0] <= p.way_points_latitude[j]) and (p.pos_current[1] <= p.way_points_longitude[j]):  
-            j+=1   
-
-    #goes down to box location to pick up the box    
-    while not (p.gripper_act == "True"):
-	p.PID(box_location[0], box_location[1], box_location[2])
-	r.sleep()
-        print("going down to pick up the box...")
-
-    # activates the gripper 		
-    x = Gripper()
-    x.activate_gripper = True
-    activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper ) 
-    activate.wait_for_service()
-    activate.call(x.activate_gripper)
-    print('box is attached to the drone')
-
-    #takes the box  above the box location 	
-    while not (p.pos_current[2] >= (box_location[2] + p.height_req_for_qr)) :	
-	p.PID(box_location[0], box_location[1], box_location[2] + p.height_req_for_qr)
-        r.sleep()
-        print('going up ...')
-
-    #plans a path from box to the location provided by the qr code 	
-    p.Path_Planning(box_location, p.final_loc)
-      
-    #uses the planned paths to navigate to the final location along with obstacle avoidance 	
-    while  (k < (p.way_points_no + 2)):
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], box_location[2]+ 1.2)
-        p.Obstacle_avoid()
-        r.sleep()
-        print('navigating to the final location')
-        
-        #if obstacle is found our drone avoids it and then plans a new path  
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, p.final_loc)
-	    k = 1
-            p.r = False
-        #condition so that the drone starts to move to the next waypoint when the last one is achieved
-        if (p.pos_current[0] <= p.way_points_latitude[k] ) and (p.pos_current[1] >= p.way_points_longitude[k]):
-            k+=1  
-            
-    #the drone drops its height for it to be able to drop the box (gently)
-    while not(p.pos_current[2] <= p.final_loc[2]+p.box_height):
-	p.PID(p.final_loc[0], p.final_loc[1], p.final_loc[2])
-	print("going down to the final location...")
-	r.sleep()
-    # the gripper is deactivated	
-    x.activate_gripper = False
-    activate.wait_for_service()
-    activate.call(x.activate_gripper)
-    print('box is droped gently (becuase its not a bomb :D)')
     
-    # the drone lifts up after droping the box gently( because its not a bomb :D ) 
-    while not rospy.is_shutdown():
-    	p.PID(p.final_loc[0], p.final_loc[1] ,p.final_loc[2]+1.2)	
-	r.sleep()
-        print('drone lifts up')
-    	
+    # Given location of the buildings --- [latitude, longitude, altitude]
+    building_1 = [18.9990965928, 72.0000664814, 10.75] 
+    building_2 = [18.9990965925, 71.9999050292,  22.2]
+    building_3 = [18.9993675932, 72.0000569892,  10.7]
+    
+    # Edrone going up
+    while (p.pos_current[2] <= p.initial[2]+1):
+	p.PID(p.initial[0] ,p.initial[1] , p.initial[2]+1)
+        print('going up by 1m')
+        r.sleep()
+    # Storing the marker id(ie = 3) and publishing it    
+    p.marker.marker_id =int(3)
+    p.pub.publish(p.marker)
+    
+    # Using range_finder_bottom so as to aviod going down when there is building below that we dont not want to land on.
+    while (p.bottom_range<=1.4):
+        p.PID( building_3[0], building_3[1],p.initial[2]+1)
+        print('building below!!')
+        r.sleep()
+    # Going to building 3 
+    while (p.pos_current[0]<=building_3[0] and p.pos_current[1]<=building_3[1] and p.pos_current[2]>=building_3[2]+1):
+        p.PID( building_3[0], building_3[1],building_3[2]+1)
+        print('building 3 ...')
+        r.sleep()
+    # seraching for the marker by going up by 14m 
+    while (p.pos_current[2]<=building_3[2]+14):
+        # Calculating the distance the drone will have to travel to get to the marker
+	b,a = p.find_marker()
 
+        p.PID( building_3[0], building_3[1],building_3[2]+14)
+        print('searching...')
+        r.sleep()
+
+    # Calculating the distance the drone will have to travel to get to the marker
+    b,a = p.find_marker()
+  
+    # Navigating to the Marker
+    while not (p.pos_current[0]<=building_3[0] - a and p.pos_current[1]>=building_3[1] +b):
+        p.PID( building_3[0] - a, building_3[1] + b, building_3[2]+14)
+        print('Navigating to the Marker')
+        r.sleep()
+    #going down to hover at 1m above the marker
+    '''while  (p.pos_current[2] >= building_3[2] +1.01):
+        p.PID( building_3[0] - a, building_3[1] +b, building_3[2]+1)
+        print('hover above marker...')
+        r.sleep()'''
+
+    # Storing the marker id(ie = 1) and publishing it 
+    p.marker.marker_id =int(1)
+    p.pub.publish(p.marker)
+    
+     # Going to building 1 
+    while not  (p.pos_current[1]>=building_1[1] and p.pos_current[2]>=building_1[2]):
+        p.PID( building_1[0], building_1[1], building_1[2]+1) 
+        print('building 1...')
+        r.sleep() 
+      
+    # seraching for the marker by going up by 14m 
+    while (p.pos_current[2]<=building_1[2]+14):
+	b,a = p.find_marker()
+        p.PID( building_1[0], building_1[1],building_1[2]+14)
+        print('searching')
+        r.sleep()
+    # Calculating the distance the drone will have to travel to get to the marker
+    b,a = p.find_marker()
+
+    # Navigating to the Marker
+    while (p.pos_current[0]>= building_1[0] - a and p.pos_current[1]<=building_1[1] + b) :
+        p.PID( building_1[0] -a , building_1[1] +b ,building_1[2]+14)
+        print('Navigating to the Marker...')
+        r.sleep()
+    # going down to hover at 1m above the marker
+    '''while (p.pos_current[2] >= building_1[2] + 1.05) :
+        p.PID(building_1[0] - a,building_1[1] + b, building_1[2] + 1)
+        print('hover above marker...')
+        r.sleep()'''
+
+    # Storing the marker id(ie = 2) and publishing it 
+    p.marker.marker_id =int(2)
+    p.pub.publish(p.marker)
+    
+    # Going to building 2
+    while not (p.pos_current[0] <= building_2[0] and p.pos_current[1] <= building_2[1]):
+        p.PID(building_2[0],building_2[1],building_1[2] +14)
+        print('building 2...')
+        r.sleep()
+      
+    while (p.pos_current[2] >=building_2[2] +1.05):
+        p.PID(building_2[0],building_2[1],building_2[2] +1)
+        print('building 2...')
+        r.sleep()
+       
+    # traveling 5m in longitude   
+    while (p.pos_current[1] >= building_2[1] + p.y_to_long(5)):
+        p.PID(building_2[0],building_2[1]+ p.y_to_long(5),building_2[2] +1)
+        print('searching...')
+        r.sleep()
+    
+    # searching for the marker by going up by 14m 
+    while p.pos_current[2] <= building_2[2] + 14:
+        b,a = p.find_marker()
+        p.PID(building_2[0],building_2[1]+ p.y_to_long(5),building_2[2] +14)
+        print('searching...')
+        r.sleep()
+
+    # Calculating the distance the drone will have to travel to get to the marker   
+    b,a = p.find_marker()
+    
+    # Navigating to the Marker
+    while not (p.pos_current[0]>=building_2[0] -a and p.pos_current[1]<=building_2[1] + p.y_to_long(5) +b):
+        p.PID(building_2[0]-a,building_2[1]+ p.y_to_long(5) +b,building_2[2]+14)
+        print('Navigating to the Marker...')
+        r.sleep()  
+   # Landing on the marker   
+    while not rospy.is_shutdown():
+        p.PID(building_2[0]-a,building_2[1]+ p.y_to_long(5) +b,building_2[2])
+        print('landing...')
+        r.sleep()
+
+   
 
 
 
