@@ -11,6 +11,7 @@ from pid_tune.msg import PidTune
 from std_msgs.msg import String
 from vitarana_drone.srv import Gripper
 import numpy as np
+import pandas as pd
 
 rospy.init_node('position_controller',anonymous=True)
 
@@ -25,7 +26,10 @@ class Position():
        # This is the variable where we store the data we get from GPS
        # [latitude current, longitude current, altitude current]
        self.pos_current = [0.0, 0.0, 0.0]
-	
+
+       df = pd.read_csv('manifest.csv',header=None)
+       self.data = df.values
+      
        self.final_loc = [0.0 ,0.0 ,0.0 ]
        self.gripper_act = ""
        self.k = -1
@@ -55,6 +59,11 @@ class Position():
 
        self.stop_loc = [0.0 , 0.0 ,0.0]
 
+       self.x_e = -1
+       self.y_e = -1
+       
+       
+
        # these are the variable we store the values of rcRoll, rcPitch, rcYaw and rcThrottle to publish to the attitude_controller node
        #[rcRoll, rcPitch, rcYaw, rcThrottle]
        self.setpoint_cmd = edrone_cmd()
@@ -66,7 +75,7 @@ class Position():
        # settings of Kp, Ki and Kd for [latitude, longitude, altitude]
        self.K_p = [ 3188*1000,  3188*1000, 4000*0.1]
        self.K_i = [   3*0.1,      3*0.1, 950*0.001]
-       self.K_d = [ 5000*100000 ,5000*100000, 5000*2]
+       self.K_d = [ 5400*100000 ,5000*100000, 5000*2]
        
        # previous values of error for differential part of PID   
        # [latitude previous error, longitude previous error, altitude previous error] 
@@ -106,7 +115,7 @@ class Position():
        self.pub = rospy.Publisher('/marker_id',MarkerData,queue_size = 1)
    #defining callback_function
        self.marker = MarkerData()
-       self.marker.marker_id =0
+       self.marker.marker_id =int(0)
    
    # This is a callback function to store the data published by GPS into class variables 
    def Nav_data(self,msg):
@@ -150,6 +159,7 @@ class Position():
        self.y = msg.y
        self.w = msg.w
        self.h = msg.h
+       self.l = msg.l
          
        #print(self.x,self.y,self.w,self.h)    
 
@@ -162,6 +172,7 @@ class Position():
 
    # The PID function , it takes in the required latitude, longitude and altitude
    def PID(self,lat ,lon, alt):
+       
        
        # we set the required position
        self.pos_ref = [lat, lon, alt]
@@ -251,6 +262,8 @@ class Position():
 
    # Function for obstacle avoid, it gets data from the range_finder_top and currently its looking only for the direction of travel in this map (ie - left for drone)
    def Obstacle_avoid(self):
+       self.ref_value = 5 #meters 
+       self.error_lat = self.left - self.ref_value
        
        #checks if the distance between obstacle and drone is less than 10 then its avoids the obstacle 
        if (self.left < 8):
@@ -310,6 +323,40 @@ class Position():
    #A down function so that the drone travels down (according to drone's orientation)
    def Down(self):
        self.PID(self.pos_current[0] , self.pos_current[1] , self.pos_current[2] - 0.2)
+  
+   def find_marker(self , building_location):
+       # image width
+       img_width = 400
+       # Horizontal field of view 
+       hfov = 1.3962634
+       # Calculating the distance the drone will have to travel to get to the marker
+       focal_length = (img_width/2)/np.tan(hfov/2)
+       centre_x_pixel = self.x+ (self.w/2)
+       centre_y_pixel = self.y+ (self.h/2)
+       err_x_m = ((200-centre_x_pixel)*(self.pos_current[2]-building_location))/focal_length
+       err_y_m =  ((200-centre_y_pixel)*(self.pos_current[2]-building_location))/focal_length
+       b = p.y_to_long(err_y_m) # the distace to move in longitude
+       a = p.x_to_lat(err_x_m)  # the distace to move in latitude 
+       return b,a
+
+   def PID_e(self , current_location , building_location):
+       b,a = self.find_marker(building_location)
+       ref_err = [0 , 0] 
+       print("next pid")
+      
+       self.x_e = a - ref_err[0]
+       self.y_e = b - ref_err[1]
+       latitude = 5*self.x_e  
+       longitude = 5*self.y_e
+       print(latitude,longitude)
+       
+       self.PID(p.pos_current[0] - latitude , p.pos_current[1] +longitude , current_location[2])
+       print("s",self.x_e,self.y_e)
+      
+     
+       
+          
+  
 
 
 
@@ -318,107 +365,152 @@ if __name__ == '__main__':
 
     p = Position()
     r = rospy.Rate(30)
-    building_1 = [18.9990965928, 72.0000664814, 10.75] 
-    building_2 = [18.9990965925, 71.9999050292,  22.2]
-    building_3 = [18.9993675932, 72.0000569892,  10.7]
-
-    while (p.pos_current[2] <= p.initial[2]+1):
-	p.PID(p.initial[0] ,p.initial[1] , p.initial[2]+1)
-	print(p.initial)
-        print("upar gya")
-        r.sleep()
-        if p.pos_current[2]>=17.66:
-        	print(p.pos_current)
-                print("1")
-
-    #p.Path_Planning(p.pos_current ,building_1)
-    p.marker.marker_id =3
-    p.pub.publish(p.marker)
-    print(p.marker)
-    while (p.bottom_range<=1.4):
-        p.PID( building_3[0], building_3[1],p.initial[2]+1)
-        #p.Obstacle_avoid()
-	print("building 3")
-        r.sleep()
+    A_1 = [18.9999864489,71.9999430161,8.44099749139]
+    B_2 = [18.9999864489 + p.x_to_lat(1.5),71.9999430161 - p.y_to_long(1.5),8.44099749139]#[19.0000000000062, 71.99995726219537, 8.44099749139]
+    C_1 = [18.9999864489+p.x_to_lat(3),71.9999430161,8.44099749139]    #19.0004681325,72.0000949773,16.660019864
     
-    while (p.pos_current[0]<=building_3[0] and p.pos_current[1]<=building_3[1] and p.pos_current[2]>=building_3[2]+1):
-        p.PID( building_3[0], building_3[1],building_3[2]+1)
-        print("neeche agya")
+    initial_location = [p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    while not (p.pos_current[0] <= A_1[0] and p.pos_current[1] <=A_1[1] and p.pos_current[2]>= initial_location[2] + 1):
+        p.PID(A_1[0],A_1[1],A_1[2]+1)
+        
         r.sleep()
-     
-    while (p.pos_current[2]<=building_3[2]+14):
-        p.PID( building_3[0], building_3[1],building_3[2]+14)
-        print("searching")
-        r.sleep()
-    focal_length = (400/2)/np.tan(1.3962634/2)
-    centre_x_pixel = p.x+ (p.w/2)
-    centre_y_pixel = p.y+ (p.h/2)
-            
-            
-    err_x_m = centre_x_pixel*p.bottom_range/focal_length
-    err_y_m = centre_y_pixel*p.bottom_range/focal_length
-    b = p.y_to_long(err_y_m)
-    a = p.x_to_lat(err_x_m)
+
+    while not p.gripper_act == "True":
+        p.PID(A_1[0],A_1[1],A_1[2])
+        r.sleep()  
+
+    # activates the gripper 		
+    x = Gripper()
+    x.activate_gripper = True
+    activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
+    activate.wait_for_service()
+    activate.call(x.activate_gripper)
+    print('box is attached to the drone')
   
-    print("final x=",p.x_to_lat(p.x))
-    print("final y=",p.y_to_long(p.y))
-    while not (p.pos_current[0]<=building_3[0] + b and p.pos_current[1]>=building_3[1] -a):
-        p.PID( building_3[0] + b, building_3[1] - a, building_3[2]+14)
+    while not (p.pos_current[0]<=p.data[0][1] and p.pos_current[1]>=p.data[0][2] and p.pos_current[2]>=p.data[0][3] +1):
+        p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 1)
         r.sleep()
-    while  (p.pos_current[2] >= building_3[2] +1.01):
-        p.PID( building_3[0] + b, building_3[1] - a, building_3[2]+1)
-        r.sleep()
-    print("bahr aya")
-    while not  (p.pos_current[1]>=building_1[1] and p.pos_current[2]>=building_1[2]):
-        p.PID( building_1[0], building_1[1], building_1[2]+1) 
-        r.sleep() 
-        print("loop") 
-     
-    while (p.pos_current[2]<=building_1[2]+14):
-        p.PID( building_1[0], building_1[1],building_1[2]+14)
-        print("searching 1")
-        r.sleep()
-    '''focal_length = (400/2)/np.tan(1.3962634/2)
-    centre_x_pixel = p.x
-    centre_y_pixel = p.y
-            
-    print(p.bottom_range)        
-    err_x_m = centre_x_pixel*p.bottom_range/focal_length
-    err_y_m = centre_y_pixel*p.bottom_range/focal_length
-    b = p.y_to_long(err_y_m)
-    a = p.x_to_lat(err_x_m)
-    print("a", a)
-    print ("b",b)
-    while True:
-        p.PID( building_1[0] +b , building_1[1] +a ,building_1[2]+14)
-        print("i m here")
-        r.sleep()'''
-    while not (p.pos_current[1]<=building_2[1] and p.pos_current[2]>=building_2[2]+4):
-        p.PID (building_2[0],building_2[1],building_2[2]+4)
-        print("building 2")
-        r.sleep() 
-    while ( p.pos_current[2]<=building_2[2]+16):
-        p.PID (building_2[0],building_2[1],building_2[2]+16)
-        print("searching 2")
-        r.sleep() 
-    focal_length = (400/2)/np.tan(1.3962634/2)
-    centre_x_pixel = p.x+ (p.h/2)
-    centre_y_pixel = p.y+ (p.w/2)
-            
-    print(p.bottom_range)        
-    err_x_m = centre_x_pixel*p.bottom_range/focal_length
-    err_y_m = centre_y_pixel*p.bottom_range/focal_length
-    print(centre_x_pixel)
-    print(centre_y_pixel)
-    b = p.y_to_long(err_y_m)
-    a = p.x_to_lat(err_x_m)
-    print("a", a)
-    print ("b",b)
+
+
+    i = 1
    
-    while True:
-        p.PID( building_2[0] -b  , building_2[1] - a ,building_2[2]+16)
-        print("detected")
+    while p.l == 0:
+	
+	p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 1 + 2.5*i)
+	r.sleep()
+	if p.pos_current[2] >= p.data[0][3] + 1 + 2.5*i :
+		i =i+1
+
+
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+    b,a = p.find_marker(p.data[0][3])
+    
+    while not (p.pos_current[0]<=current_location[0]-a and p.pos_current[1]>=current_location[1] + b):
+        
+        
+	print("hello")
+	p.PID(current_location[0] - a,current_location[1] + b,current_location[2])
         r.sleep()
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+    while not (p.pos_current[2]<=p.data[0][3]+0.37):
+        p.PID(current_location[0],current_location[1],p.data[0][3])
+        print(p.data[0][3] + 0.37)
+        r.sleep()
+    x.activate_gripper = False
+    activate.wait_for_service()
+    activate.call(x.activate_gripper)
+    print('box is droped gently (becuase its not a bomb :D)')
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+
+    while (p.bottom_range<=2):
+        p.PID(C_1[0],C_1[1],current_location[2] +1)
+        print("moving")
+        r.sleep()
+    print(B_2)
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
+    print(current_location)
+    while not (p.linear_acc_x <= 0.0002 and p.linear_acc_y <= 0.0002 and p.linear_acc_z <= 0.0002 and p.vel_x <=0.05 and p.vel_y<=0.05 and p.vel_z <= 0.05):
+        p.PID(C_1[0],C_1[1],C_1[2] +1)
+        print("moving to box 2")
+        r.sleep()
+        
+    while not p.gripper_act == "True":
+        p.PID(C_1[0],C_1[1],C_1[2])
+        r.sleep()  
+    
+    x = Gripper()
+    x.activate_gripper = True
+    activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
+    activate.wait_for_service()
+    activate.call(x.activate_gripper)
+    print('box is attached to the drone') 
+
+    while  not (p.pos_current[0]>=p.data[1][1] and p.pos_current[1]>=p.data[1][2] and p.pos_current[2]>=p.data[1][3]):
+           
+         p.PID(p.data[1][1],p.data[1][2],p.data[1][3] + 1)
+         r.sleep()
+    while p.l == 0:
+	print("searching")
+	p.PID(p.data[1][1],p.data[1][2],p.data[1][3] + 1 + 1*i)
+	r.sleep()
+	if p.pos_current[2] >= p.data[1][3] + 1 + 1*i :
+		i =i+1
+    
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+    b,a = p.find_marker(p.data[1][3])
+    while not (p.pos_current[0]<=current_location[0]-a and p.pos_current[1]>=current_location[1] + b):
+        
+        
+	print("building C_1")
+	p.PID(current_location[0] - a,current_location[1] + b,current_location[2])
+        r.sleep()
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
+    while not (p.pos_current[2]<=p.data[1][3]+0.26):
+        p.PID(current_location[0],current_location[1],p.data[1][3])
+        print("last")
+        r.sleep()
+    x.activate_gripper = False
+    activate.wait_for_service()
+    activate.call(x.activate_gripper)
+    print('box is droped gently (becuase its not a bomb :D)')
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
+    while (p.bottom_range<=2):
+        print(p.bottom_range)
+        p.PID(B_2[0],B_2[1],current_location[2] +1)
+        print("moving")
+        r.sleep()
+    print(B_2)
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
+    print(current_location)
+    while not (p.linear_acc_x <= 0.0002 and p.linear_acc_y <= 0.0002 and p.linear_acc_z <= 0.0002 and p.vel_x <=0.05 and p.vel_y<=0.05 and p.vel_z <= 0.05):
+        p.PID(B_2[0],B_2[1],B_2[2] +1)
+        print("moving to box 3")
+        r.sleep()
+        
+    while not p.gripper_act == "True":
+        p.PID(B_2[0],B_2[1],B_2[2])
+        r.sleep()  
+    
+    x = Gripper()
+    x.activate_gripper = True
+    activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
+    activate.wait_for_service()
+    activate.call(x.activate_gripper)
+    print('box is attached to the drone')
+    
+    
+
+    
+    
+        
+    
+       
+  
+	
+
+     
+   
+   
 
 
 

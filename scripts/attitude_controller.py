@@ -42,7 +42,7 @@ class Edrone():
         #setting of Kp, Kd and ki for [roll, pitch, yaw].
         self.Kp = [82*0.01, 175*0.01, 1223*0.1]
         self.Ki = [0*0.001, 0*0.001, 96*0.001]
-        self.Kd = [52*0.2, 153*0.2, 0*2]
+        self.Kd = [50*0.2, 153*0.2, 0*2]
         
         
         # previous values of error for differential part of PID

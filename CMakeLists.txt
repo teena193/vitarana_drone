@@ -36,11 +36,11 @@ include_directories(${Boost_INCLUDE_DIRS})
    prop_speed.msg
    edrone_cmd.msg
    MarkerData.msg
+   coordinates.msg
+#<<<<<<< HEAD
    
-<<<<<<< HEAD
-   
-=======
->>>>>>> 973cb91ffea5de3e8a998e510ccfd595cd8d1661
+#=======
+#>>>>>>> 973cb91ffea5de3e8a998e510ccfd595cd8d1661
  )
 
 ## Generate services in the 'srv' folder
