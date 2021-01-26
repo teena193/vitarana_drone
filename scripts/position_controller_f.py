@@ -27,11 +27,9 @@ class Position():
        # [latitude current, longitude current, altitude current]
        self.pos_current = [0.0, 0.0, 0.0]
 
-       # getting building location from the csv file using pandas 
        df = pd.read_csv('manifest.csv',header=None)
        self.data = df.values
       
-       #decraling some variables to be used 
        self.final_loc = [0.0 ,0.0 ,0.0 ]
        self.gripper_act = ""
        self.k = -1
@@ -76,7 +74,7 @@ class Position():
 
        # settings of Kp, Ki and Kd for [latitude, longitude, altitude]
        self.K_p = [ 800*50000,  800*50000, 4000*0.1]
-       self.K_i = [   9.9*0.1,      9.9*0.1, 950*0.001]
+       self.K_i = [   9*0.1,      9*0.1, 950*0.001]
        self.K_d = [ 3319*500000 ,3319*500000, 5000*2]
 
        # previous values of error for differential part of PID   
@@ -186,8 +184,8 @@ class Position():
    # The PID function , it takes in the required latitude, longitude and altitude
    def PID(self,lat ,lon, alt):
        
-       # gives direction of heading of drone 
        self.direction_of_heading()
+       print("doh",self.doh)
        # we set the required position
        self.pos_ref = [lat, lon, alt]
        
@@ -278,26 +276,39 @@ class Position():
        self.way_points_longitude[-1] = final_location[1]  #we store the final waypoint as final location so that the drone always goes to it
        #print('waypoint',self.way_points_longitude)
 
-   # Function for obstacle avoid, it gets data from the range_finder_top and currently its looking only for the direction of travel.
+   # Function for obstacle avoid, it gets data from the range_finder_top and currently its looking only for the direction of travel in this map (ie - left for drone)
    def Obstacle_avoid(self,fin_loc):
+       '''ref = 5
+       cur_loc = [self.pos_current[0],self.pos_current[1],self.pos_current[2]]
+       if self.front <=5:
+           obs_location =[0,self.front]
+       if self.back <=5:
+           obs_location =[0,-self.back]
+       if self.left <=5:
+           obs_location =[-self.left,0]
+       if self.right <=5:
+           obs_location =[self.right,0]'''
        cur_loc = [self.pos_current[0],self.pos_current[1],self.pos_current[2]]
        diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
-       if (self.doh[0]==1) and (self.right < 10) :
+       if (self.doh[0]==1) and (self.right < 10):
            self.r = True
 	   self.stop_loc = [ self.pos_current[0] , self.pos_current[1] , self.pos_current[2] ]
-           # while the condtion is True our drone will avoid the obstacle by using a command 
+	   '''while not (self.linear_acc_x <= 0.002 and self.linear_acc_y <= 0.002 and self.linear_acc_z <= 0.002 and self.vel_x <=0.05 and self.vel_y<=0.05 and self.vel_z <= 0.05):
+	       self.Stop()
+	       print("inside stop")'''
+           # while the condtion is True our drone will avoid the obstacle by using a command (here it is backward (according to the drone's orientation))
            while (self.right < 12):
 	       
                if diff[1] >0:
                    self.PID(cur_loc[0],self.pos_current[1] + self.y_to_long(10),self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		   
+		   print("inside if")
                else:
                    self.PID(cur_loc[0], self.pos_current[1] - self.y_to_long(10),self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside else")
 	       print('obstacle avoiding...',self.pos_after_obs)
                self.pos_after_obs[0] = self.pos_current[0]
 	       self.pos_after_obs[1] = self.pos_current[1] - self.y_to_long(10) 
@@ -306,65 +317,71 @@ class Position():
        elif (self.doh[3]==1) and (self.front < 10):
            self.r = True
 	   self.stop_loc = [ self.pos_current[0] , self.pos_current[1] , self.pos_current[2] ]
-	
-           # while the condtion is True our drone will avoid the obstacle by using a command 
+	   '''while not (self.linear_acc_x <= 0.002 and self.linear_acc_y <= 0.002 and self.linear_acc_z <= 0.002 and self.vel_x <=0.05 and self.vel_y<=0.05 and self.vel_z <= 0.05):
+	       self.Stop()
+	       print("inside stop")'''
+           # while the condtion is True our drone will avoid the obstacle by using a command (here it is backward (according to the drone's orientation))
            while (self.front < 12):
 	       
                if diff[0] > 0:
                    self.PID(cur_loc[0]- self.x_to_lat(10) , cur_loc[1] , self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside if front")
                else:
                    self.PID(cur_loc[0] + self.x_to_lat(10) , cur_loc[1] , self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside else front")
 	       print('obstacle avoiding...',self.pos_after_obs)
                self.pos_after_obs[0] = self.pos_current[0] 
 	       self.pos_after_obs[1] = self.pos_current[1]  
                self.pos_after_obs[2] = self.pos_current[2]
 
 
-       elif (self.doh[1]==1) and (self.left < 10) :
+       elif (self.doh[1]==1) and (self.left < 10):
            self.r = True
 	   self.stop_loc = [ self.pos_current[0] , self.pos_current[1] , self.pos_current[2] ]
-	   
-           # while the condtion is True our drone will avoid the obstacle by using a command 
+	   '''while not (self.linear_acc_x <= 0.002 and self.linear_acc_y <= 0.002 and self.linear_acc_z <= 0.002 and self.vel_x <=0.05 and self.vel_y<=0.05 and self.vel_z <= 0.05):
+	       self.Stop()
+	       print("inside stop")'''
+           # while the condtion is True our drone will avoid the obstacle by using a command (here it is backward (according to the drone's orientation))
            while (self.left < 12):
 	       
                if diff[1] > 0:
                    self.PID(cur_loc[0],self.pos_current[1] - self.y_to_long(10),self.stop_loc[2] ) #error 
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside if left")
                else:
                    self.PID(cur_loc[0],self.pos_current[1] + self.y_to_long(10),self.stop_loc [2]) #error
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		 
+		   print("inside else left")
 	       print('obstacle avoiding...',self.pos_after_obs)
                self.pos_after_obs[0] = self.pos_current[0] 
 	       self.pos_after_obs[1] = self.pos_current[1] - self.y_to_long(10) 
                self.pos_after_obs[2] = self.pos_current[2]
 
-       elif (self.doh[2]==1) and (self.back < 10) :
+       elif (self.doh[2]==1) and (self.back < 10):
            self.r = True
 	   self.stop_loc = [ self.pos_current[0] , self.pos_current[1] , self.pos_current[2] ]
-	   
-           # while the condtion is True our drone will avoid the obstacle by using a command
+	   '''while not (self.linear_acc_x <= 0.002 and self.linear_acc_y <= 0.002 and self.linear_acc_z <= 0.002 and self.vel_x <=0.05 and self.vel_y<=0.05 and self.vel_z <= 0.05):
+	       self.Stop()
+	       print("inside stop")'''
+           # while the condtion is True our drone will avoid the obstacle by using a command (here it is backward (according to the drone's orientation))
            while (self.back < 12):
 	       
                if diff[0] > 0:
                    self.PID(cur_loc[0]+ self.x_to_lat(10) , cur_loc[1] , self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside if front")
                else:
                    self.PID(cur_loc[0] - self.x_to_lat(10) , cur_loc[1] , self.stop_loc[2])
                    diff = [self.lat_to_x(self.pos_current[0]) - self.lat_to_x(fin_loc[0]),self.long_to_y(self.pos_current[1]) - self.long_to_y(fin_loc[1]),self.pos_current[2] - fin_loc[2]]
                    r.sleep()
-		  
+		   print("inside else front")
 	       print('obstacle avoiding...',self.pos_after_obs)
                self.pos_after_obs[0] = self.pos_current[0] 
 	       self.pos_after_obs[1] = self.pos_current[1]  
@@ -373,16 +390,16 @@ class Position():
 
 
    
-   # converting meters to latitude  
+    
    def x_to_lat(self, input_x):
        return (input_x / 110692.0702932625)  
-   # converting meters to longitude 
+
    def y_to_long(self, input_y):
        return  (input_y / -105292.0089353767) 
-   # converting latitude to meters 
+    # if you use this for control, you may have to change the relevant pitch   direction because of the sign
    def lat_to_x(self, input_latitude):
        return 110692.0702932625 * (input_latitude - 19)
-   # converting longitude to meters
+
    def long_to_y(self, input_longitude):
        return -105292.0089353767 * (input_longitude - 72)
     
@@ -426,9 +443,11 @@ class Position():
        a = p.x_to_lat(err_x_m)  # the distace to move in latitude 
        return b,a
 
-   # this function checks the condition for position of the drone and if it has reached the specified location 
    def travel(self , current , destination):
-       
+
+       #destination = [x1 , y1 , z1]
+       #initial = [x0 , y0 , z0]
+       #pos_current = [x , y , z]
 
        if (destination[0] >= current[0] and destination[1] >= current[1] and destination[2] >= current[2]):
            condition = (self.pos_current[0]  >= destination[0] and self.pos_current[1] >= destination[1] and self.pos_current[2] >= current[2])
@@ -458,13 +477,13 @@ class Position():
            condition = (self.pos_current[0]  >= destination[0] and self.pos_current[1] <= destination[1] and self.pos_current[2] >= current[2])
            return condition
 
-       else : 
+       else : #(destination[0] >= current[0] and destination[1] <= current[1] and destination[2] <= current[2]):
            condition = (self.pos_current[0]  >= destination[0] and self.pos_current[1] <= destination[1] and self.pos_current[2] <= current[2])
            return condition
 
-   # this function provides the direction of heading of the drone 1 is heading in that direction and 0 is not heading in that direction 
+
    def direction_of_heading(self):
-       self.doh = [0 ,0 ,0 ,0 ] # [+lat,-lat,+long,-long]
+       self.doh = [0 ,0 ,0 ,0] # [+lat,-lat,+long,-long]
        if abs(self.vel_x) >= 0.2:
            if self.vel_x <0:
                self.doh[1] = 1  
@@ -475,45 +494,43 @@ class Position():
                self.doh[2] = 1  
            else:
                self.doh[3] = 1
+       
+       
+      
+     
+       
+          
+  
+
+
 
 
 if __name__ == '__main__':
 
     p = Position()
     r = rospy.Rate(30)
-
-    #location of boxes 
-    A_1 = [18.9999864489,71.9999430161,8.44099749139+1]
-    B_2 = [18.9999864489 + p.x_to_lat(1.5),71.9999430161 - p.y_to_long(1.5),8.44099749139]
-    C_1 = [18.9999864489+p.x_to_lat(3),71.9999430161,8.44099749139]
+    A_1 = [18.9999864489,71.9999430161,8.44099749139]
+    B_2 = [18.9999864489 + p.x_to_lat(1.5),71.9999430161 - p.y_to_long(1.5),8.44099749139]#[19.0000000000062, 71.99995726219537, 8.44099749139]
+    C_1 = [18.9999864489+p.x_to_lat(3),71.9999430161,8.44099749139]    
     
-    #stores the initial location of the box.
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
     final_loc = [p.pos_current[0],p.pos_current[1],p.pos_current[2]+1]
     
-    # drones goes up by 1m
     while not (p.pos_current[2] >= initial_location[2]+1):
 	p.PID(initial_location[0] , initial_location[1] , initial_location[2] + 1)
-        print(' drones goes up by 1m')
 	r.sleep()
-    #stores the initial location of the box at the start 
-    initial_location_at_start = p.initial
-    initial_location = [p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    
-    # evaluating the condition.
-    condition = p.travel(initial_location,A_1)
 
-    # drone travels to pick the box at A-1
-    while not condition:
-        p.PID(A_1[0],A_1[1],A_1[2])
-        condition = p.travel(initial_location,A_1)
-        print('drone travels to pick the box at A-1')
+    '''initial_location_at_start = p.initial
+    initial_location = [p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    print('starting=',initial_location,'gps=',p.pos_current)
+    condition = p.travel(initial_location,A_1)'''
+    while not (p.pos_current[0] <= A_1[0] and p.pos_current[1] <=A_1[1] and p.pos_current[2]>= A_1[2] + 1):
+        p.PID(A_1[0],A_1[1],A_1[2]+1)
+        
         r.sleep()
 
-    #drone goes down until it is ready to pick up the box
     while not p.gripper_act == "True":
-        p.PID(A_1[0],A_1[1],A_1[2]-1)
-        print('drone goes down until it is ready to pick up the box')
+        p.PID(A_1[0],A_1[1],A_1[2])
         r.sleep()  
 
     # activates the gripper 		
@@ -524,22 +541,18 @@ if __name__ == '__main__':
     activate.call(x.activate_gripper)
     print('box is attached to the drone')
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    
-    # drones goes up after picking the box 
     while not (p.pos_current[2] >=p.data[0][3]+4):
 	p.PID(initial_location[0],initial_location[1],p.data[0][3]+4)
-        print('drones goes up after picking the box')
 	r.sleep()
 
-    # storing initial location and final location for condition
+    
     initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    
     final_loc=[p.data[0][1],p.data[0][2],p.data[0][3]+4]
     k = 1  
-    #path planning to the building 
     p.Path_Planning(initial_loc,final_loc)   
- 
-    # traveling in waypoints 
     while  (k < (p.way_points_no + 2)):
+        print('in here while path planning')
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4)
         p.Obstacle_avoid(final_loc)
         r.sleep()
@@ -547,43 +560,42 @@ if __name__ == '__main__':
 	    p.Path_Planning(p.pos_after_obs, final_loc)
 	    k = 1
             p.r = False
-
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
+	
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[0][3]+4]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4] 
         condition = p.travel(initial_loc , final_location)
-        print('going to building A-1..')
+
         if (condition) :
             k+=1  
-	  
+	    print("p.way_points_no + 2",p.way_points_no + 2)
 
-    #search algorithm 
+
     i = 1
+   
     while p.l == 0:
 	
 	p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 1 + 2.5*i)
 	r.sleep()
-        print('going up until marker is found..')
 	if p.pos_current[2] >= p.data[0][3] + 1 + 2.5*i :
 		i =i+1
 
-    # condition for going to the marker 
+
     initial_loc = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
     b,a = p.find_marker(p.data[0][3])
     final_location = [initial_loc [0]-a , initial_loc [1]+b , initial_loc [2]]
     condition = p.travel(initial_loc  , final_location)
- 
-    # going to the marker 
+
     while not (condition):
-	
+	print("hello")
 	condition = p.travel(initial_loc , final_location)
 	p.PID(initial_loc [0] - a,initial_loc [1] + b,initial_loc[2])
-        print('going to the marker...')
         r.sleep()
-    # going down to the marker
+
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    while not (p.pos_current[2] <=p.data[0][3]+0.37):
-	p.PID(initial_location[0],initial_location[1],p.data[0][3])
-        print('going down to the marker...')
+    while not (p.pos_current[2] <=p.data[0][3]+0.26 +p.bottom_range):
+	p.PID(initial_location[0],initial_location[1],p.data[0][3]+0.26 +p.bottom_range)
 	r.sleep()
 
     x.activate_gripper = False
@@ -591,23 +603,19 @@ if __name__ == '__main__':
     activate.call(x.activate_gripper)
     print('box is droped gently (becuase its not a bomb :D)')
 
-    # going up 
+
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
     while not (p.pos_current[2] >=p.data[0][3]+4):
 	p.PID(initial_location[0],initial_location[1],p.data[0][3]+4)
-        print('going up')
 	r.sleep()
    
-    # conditions
     initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    
     final_loc=[C_1[0],C_1[1],p.data[0][3]+4]
     k = 1  
-    #path planning for back to get the box at C-2
     p.Path_Planning(initial_loc,final_loc)   
-    
-    # traveling in waypoints
     while  (k < (p.way_points_no + 2)):
-       
+        print('in here while path planning')
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4)
         p.Obstacle_avoid(final_loc)
         r.sleep()
@@ -615,16 +623,17 @@ if __name__ == '__main__':
 	    p.Path_Planning(p.pos_after_obs, final_loc)
 	    k = 1
             p.r = False
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
 	
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[0][3]+4]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4] 
         condition = p.travel(initial_loc , final_location)
-        print('going to pick the box at C-1..')
 
         if (condition) :
             k+=1  
-	   
-    #drone goes down until it is ready to pick up the box
+	    print("p.way_points_no + 2",p.way_points_no + 2)
+   
     while not p.gripper_act == "True":
         p.PID(C_1[0],C_1[1],C_1[2])
         r.sleep()
@@ -635,92 +644,82 @@ if __name__ == '__main__':
     activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
     activate.wait_for_service()
     activate.call(x.activate_gripper)
-
     print('box is attached to the drone')
-
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    #going up 
     while not (p.pos_current[2] >=p.data[1][3]+4):
 	p.PID(initial_location[0],initial_location[1],p.data[1][3]+4)
 	r.sleep()
-        print('going up')
 
-    # conditions 
-    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]    
+    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    
     final_loc=[p.data[1][1],p.data[1][2],p.data[1][3]+4]
     k = 1  
-    # path planning to the building C-1
     p.Path_Planning(initial_loc,final_loc)   
-   
-    # travelling in waypoints 
     while  (k < (p.way_points_no + 2)):
-      
+        print('in here while path planning')
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4)
         p.Obstacle_avoid(final_loc)
         r.sleep()
+
         if (p.r == True):
 	    p.Path_Planning(p.pos_after_obs, final_loc)
 	    k = 1
             p.r = False
-
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
+	
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[1][3]+4]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4] 
         condition = p.travel(initial_loc , final_location)
-        print('going to building C-1..')
+
         if (condition) :
             k+=1  
-    #search algorithm
+	    print("p.way_points_no + 2",p.way_points_no + 2)
+
+
+
     i = 1
+   
     while p.l == 0:
 	
-	p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 0.5*i)
+	p.PID(p.data[0][1],p.data[0][2],p.data[0][3]  + 1*i)
 	r.sleep()
-        print('going up until marker is found..')
-	if p.pos_current[2] >= p.data[0][3] + 0.5*i :
-	 	i =i+1
-    # conditions 
+	if p.pos_current[2] >= p.data[0][3] + 1*i :
+		i =i+1
+
     initial_loc = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
     b,a = p.find_marker(p.data[1][3])
     final_location = [initial_loc [0]-a , initial_loc [1]+b , initial_loc [2]]
     condition = p.travel(initial_loc  , final_location)
-   
-    # traveling to the marker 
+
     while not (condition):
+	print("hello")
 	condition = p.travel(initial_loc , final_location)
 	p.PID(initial_loc [0] - a,initial_loc [1] + b,initial_loc[2])
-        print('going to the marker...')
         r.sleep()
 
-    #going down to the marker 
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
     while not (p.pos_current[2] <=p.data[1][3]+0.26):
 	p.PID(initial_location[0],initial_location[1],p.data[1][3])
-        print('going down to the marker')
 	r.sleep()
 
     x.activate_gripper = False
     activate.wait_for_service()
     activate.call(x.activate_gripper)
     print('box is droped gently (becuase its not a bomb :D)')
-   
-    #going up after droping the box
+  
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
     while not (p.pos_current[2] >=p.data[1][3]+4):
 	p.PID(initial_location[0],initial_location[1],p.data[1][3]+4)
-        print('going up..')
 	r.sleep()
   
-    # condition
     initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    
     final_loc=[B_2[0],B_2[1],p.data[1][3]+4]
     k = 1  
-
-    # path planning back to pick the box at B-2
-    p.Path_Planning(initial_loc,final_loc)  
-   
-    # travelling in waypoints 
+    p.Path_Planning(initial_loc,final_loc)   
     while  (k < (p.way_points_no + 2)):
-       
+        print('in here while path planning')
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4)
         p.Obstacle_avoid(final_loc)
         r.sleep()
@@ -728,14 +727,18 @@ if __name__ == '__main__':
 	    p.Path_Planning(p.pos_after_obs, final_loc)
 	    k = 1
             p.r = False
-	print('travelling back to pick the box at B-2..')
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
+	
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[1][3]+4]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4] 
         condition = p.travel(initial_loc , final_location)
 
         if (condition) :
             k+=1  
-    #drone goes down until it is ready to pick up the box
+	    print("p.way_points_no + 2",p.way_points_no + 2)
+   
+   
     while not p.gripper_act == "True":
         p.PID(B_2[0],B_2[1],B_2[2])
         r.sleep()  
@@ -746,27 +749,20 @@ if __name__ == '__main__':
     activate.wait_for_service()
     activate.call(x.activate_gripper)
     print('box is attached to the drone')
-    
-    #condtions 
     p.fin_loc = [p.data[2][1],p.data[2][2],p.data[2][3]+4]
     initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-   
-    #going up 
     while not (p.pos_current[2] >=p.data[2][3]+4):
 	p.PID(initial_location[0],initial_location[1],p.data[2][3]+4)
-        print('going up')
 	r.sleep()
-
-    # going up final location height 
     k=1
+   
     while (p.pos_current[2] <= p.fin_loc[2]):
 	p.PID(B_2[0] , B_2[1] , p.fin_loc[2])
 	r.sleep()
-   
-    #path planning to the location of building B-2	
+	
     p.Path_Planning(B_2, p.fin_loc)
 
-    # travelling in waypoints 
+
     while  (k < (p.way_points_no + 2)):
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k],p.fin_loc[2])
         p.Obstacle_avoid(p.fin_loc)
@@ -775,63 +771,62 @@ if __name__ == '__main__':
 	    p.Path_Planning(p.pos_after_obs, p.fin_loc)
 	    k = 1
             p.r = False
-        print('going towards the building B-2..')
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
+	
+    
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.fin_loc[2]]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.fin_loc[2]] 
         condition = p.travel(initial_loc , final_location)
 
         if (condition) :
             k+=1  
-	    
-    # search algorithm
+	    print("p.way_points_no + 2",p.way_points_no + 2)
+
     i = 1
+   
     while p.l == 0:
 	p.PID(p.data[2][1],p.data[2][2],p.data[2][3] + 1 + 2*i)
 	r.sleep()
-        print('going up until marker is found..')
 	if p.pos_current[2] >= p.data[2][3] + 1 + 2*i :
 		i =i+1
-    #condition
+
     current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
     b,a = p.find_marker(p.data[2][3])
     final_location = [current_location[0]-a , current_location[1]+b , current_location[2]]
-    condition = p.travel(current_location , final_location) 
-    # travelling to the marker 
+    condition = p.travel(current_location , final_location)
+
     while not (condition):
-	
+	print("hello")
 	condition = p.travel(current_location , final_location)
 	p.PID(current_location[0] - a,current_location[1] + b,current_location[2])
-        print('going to the marker')
         r.sleep()
 
-    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
-     
-    #going down to drop the box      
+    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+          
     while not (p.pos_current[2]<=p.data[2][3]+0.26):
         p.PID(current_location[0],current_location[1],p.data[2][3])
-        print("droping the box..")
+        print("last")
         print(p.pos_current[2])
         r.sleep()
-
     x.activate_gripper = False
     activate.wait_for_service()
     activate.call(x.activate_gripper)
     print('box is droped gently (becuase its not a bomb :D)')
       
-    # going up
     current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+
     while (p.pos_current[2] <= p.data[2][3]+2):
 	p.PID(current_location[0], current_location[1], p.data[2][3]+2)
 	r.sleep()
-        print('going up..')
     
-    # condition
+
     current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+    
     k = 1  
-    # path planning back to the initial location 
     p.Path_Planning(current_location , initial_location_at_start )   
     while  (k < (p.way_points_no + 2)):
-      
+        print('in here while path planning')
         p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[2][3]+2)
         p.Obstacle_avoid(initial_location_at_start)
         r.sleep()
@@ -839,21 +834,23 @@ if __name__ == '__main__':
 	    p.Path_Planning(p.pos_after_obs, initial_location_at_start)
 	    k = 1
             p.r = False
-        print('going back to the initial location at the start of the run..')
+        print('k',k)
+        #condition so that the drone starts to move to the next waypoint when the last one is achieved
+	
+    
         initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[2][3]+2]  
 	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[2][3]+2] 
         condition = p.travel(initial_loc , final_location)
 
         if (condition) :
             k+=1  
-	  
+	    print("p.way_points_no + 2",p.way_points_no + 2)
+
 
 
     while (p.pos_current[2] >= initial_location_at_start[2]):
 	p.PID(initial_location_at_start[0],initial_location_at_start[1],initial_location_at_start[2])
-        print('going back to the initial location at the start of the run..')
 	r.sleep()
-    print('task complete')
 
 
     

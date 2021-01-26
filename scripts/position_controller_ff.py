@@ -483,7 +483,7 @@ if __name__ == '__main__':
     r = rospy.Rate(30)
 
     #location of boxes 
-    A_1 = [18.9999864489,71.9999430161,8.44099749139+1]
+    A_1 = [18.9999864489,71.9999430161,8.44099749139]
     B_2 = [18.9999864489 + p.x_to_lat(1.5),71.9999430161 - p.y_to_long(1.5),8.44099749139]
     C_1 = [18.9999864489+p.x_to_lat(3),71.9999430161,8.44099749139]
     
@@ -504,15 +504,20 @@ if __name__ == '__main__':
     condition = p.travel(initial_location,A_1)
 
     # drone travels to pick the box at A-1
-    while not condition:
+    '''while not condition:
         p.PID(A_1[0],A_1[1],A_1[2])
         condition = p.travel(initial_location,A_1)
         print('drone travels to pick the box at A-1')
+        r.sleep()'''
+
+    while not (p.pos_current[0] <= A_1[0] and p.pos_current[1] <=A_1[1] and p.pos_current[2]>= A_1[2] + 1):
+        p.PID(A_1[0],A_1[1],A_1[2]+1)
+        
         r.sleep()
 
     #drone goes down until it is ready to pick up the box
     while not p.gripper_act == "True":
-        p.PID(A_1[0],A_1[1],A_1[2]-1)
+        p.PID(A_1[0],A_1[1],A_1[2])
         print('drone goes down until it is ready to pick up the box')
         r.sleep()  
 
@@ -762,9 +767,11 @@ if __name__ == '__main__':
     while (p.pos_current[2] <= p.fin_loc[2]):
 	p.PID(B_2[0] , B_2[1] , p.fin_loc[2])
 	r.sleep()
+
+    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
    
     #path planning to the location of building B-2	
-    p.Path_Planning(B_2, p.fin_loc)
+    p.Path_Planning(initial_location, p.fin_loc)
 
     # travelling in waypoints 
     while  (k < (p.way_points_no + 2)):
@@ -788,7 +795,6 @@ if __name__ == '__main__':
     while p.l == 0:
 	p.PID(p.data[2][1],p.data[2][2],p.data[2][3] + 1 + 2*i)
 	r.sleep()
-        print('going up until marker is found..')
 	if p.pos_current[2] >= p.data[2][3] + 1 + 2*i :
 		i =i+1
     #condition
