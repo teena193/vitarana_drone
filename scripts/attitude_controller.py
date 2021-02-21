@@ -130,7 +130,7 @@ class Edrone():
         self.pwm_cmd.prop1 = Throttle + Roll + Yaw + Pitch  
 
         # back right 
-        self.pwm_cmd.prop2 = Throttle + Roll - Yaw + Pitch  
+        self.pwm_cmd.prop2 = Throttle + Roll - Yaw - Pitch  
 
         # back left
         self.pwm_cmd.prop3 = Throttle - Roll + Yaw + Pitch  
