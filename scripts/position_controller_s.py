@@ -29,8 +29,103 @@ class Position():
 
        # getting building location from the csv file using pandas 
        df = pd.read_csv('manifest.csv',header=None)
-       self.data = df.values
+       self.data = df.values # converting dataframe to array
+       self.D_f = []
+       self.D_t = []
+
+       for i in range(len(self.data)):
+           if self.data[i][0] == 'DELIVERY':
+               self.D_f.append(self.data[i][1])
+               self.D_t.append(self.data[i][2])
+
+       self.numbers=[]
+
+       for j in range(len(self.D_t)):
+           self.numbers.append(self.D_t[j].split(';'))
       
+
+       for j in range(len(self.numbers)):
+           for i in range(len(self.numbers[j])):
+               self.numbers[j][i]= float(self.numbers[j][i])
+       
+
+       self.R_f = []
+       self.R_t = []
+
+       for i in range(len(self.data)):
+           if self.data[i][0] == 'RETURN ':
+               self.R_f.append(self.data[i][1])
+               self.R_t.append(self.data[i][2])
+
+       print("R_f",self.R_f)       
+       print("R_t",self.R_t)
+
+       self.R_numbers=[]
+
+       for j in range(len(self.R_f)):
+           self.R_numbers.append(self.R_f[j].split(';'))
+       print('a',self.R_numbers)
+
+       for j in range(len(self.R_numbers)):
+           for i in range(len(self.R_numbers[j])):
+               self.R_numbers[j][i]= float(self.R_numbers[j][i])
+       print('b',self.R_numbers)
+
+       print(self.R_numbers)
+
+
+       self.D = {}
+
+       self.D['A1'] = [18.9998102845 ,72.000142461 ,16.757981]
+       self.D['A2'] = [18.9998102845 ,72.000142461- self.y_to_long(1.5) ,16.757981]
+       self.D['A3'] = [18.9998102845  ,72.000142461 - (2*self.y_to_long(1.5)) ,16.757981]
+   
+       self.D['B1'] = [18.9998102845 + self.x_to_lat(1.5) ,72.000142461,16.757981]
+       self.D['B2'] = [18.9998102845 + self.x_to_lat(1.5) ,72.000142461 - self.y_to_long(1.5) ,16.757981]
+       self.D['B3'] = [18.9998102845 + self.x_to_lat(1.5) ,72.000142461 - (2*self.y_to_long(1.5)) ,16.757981]
+   
+       self.D['C1'] = [18.9998102845 + (2*self.x_to_lat(1.5)) ,72.000142461 ,16.757981]
+       self.D['C2'] = [18.9998102845 + (2*self.x_to_lat(1.5)) ,72.000142461 - self.y_to_long(1.5) ,16.757981]
+       self.D['C3'] = [18.9998102845 + (2*self.x_to_lat(1.5)) ,72.000142461 - (2*self.y_to_long(1.5)) ,16.757981]
+
+       self.D['X1'] = [ 18.9999367615 ,72.000142461 ,16.757981 ]
+       self.D['X2'] = [ 18.9999367615 ,72.000142461- self.y_to_long(1.5) ,16.757981 ]
+       self.D['X3'] = [ 18.9999367615 ,72.000142461- (2*self.y_to_long(1.5)) ,16.757981 ]
+      
+       self.D['Y1'] = [ 18.9999367615+ self.x_to_lat(1.5) ,72.000142461 ,16.757981 ]
+       self.D['Y2'] = [ 18.9999367615+ self.x_to_lat(1.5) ,72.000142461- self.y_to_long(1.5) ,16.757981 ]
+       self.D['Y3'] = [ 18.9999367615+ self.x_to_lat(1.5) ,72.000142461- (2*self.y_to_long(1.5)) ,16.757981 ]
+
+       self.D['Z1'] = [ 18.9999367615+ (2*self.x_to_lat(1.5)) ,72.000142461 ,16.757981 ]
+       self.D['Z2'] = [ 18.9999367615+ (2*self.x_to_lat(1.5)) ,72.000142461- self.y_to_long(1.5) ,16.757981 ]
+       self.D['Z3'] = [ 18.9999367615+ (2*self.x_to_lat(1.5)) ,72.000142461- (2*self.y_to_long(1.5)) ,16.757981 ]
+     
+       
+       self.distance_m = []
+
+       print(self.numbers)
+       for i in range(len(self.numbers)):
+           j = self.D_f[i]
+           s = math.sqrt(((self.lat_to_x(self.numbers[i][0]) - self.lat_to_x(self.D[j][0]))**2) + ((self.long_to_y(self.numbers[i][1]) - self.long_to_y(self.D[j][1]))**2))
+           #lat = (self.lat_to_x(self.numbers[i][0]) - self.lat_to_x(self.D[j][0]))**2
+           #lon = (self.long_to_y(self.numbers[i][1]) - self.long_to_y(self.D[j][1]))**2
+           #print('s',lat,lon)  
+           self.distance_m.append(s)
+          
+           print(self.numbers[i][0])
+           print(self.D[j][0])
+
+       
+       self.Z = [x for _,x in sorted(zip(self.distance_m,self.D_f))]
+       #print("D_f",self.D_f)
+
+       self.Y = [x for _,x in sorted(zip(self.distance_m,self.numbers))]
+       #print("D_t",self.D_t)
+       #print("Y",self.Y)
+       
+
+
+
        #decraling some variables to be used 
        self.final_loc = [0.0 ,0.0 ,0.0 ]
        self.gripper_act = ""
@@ -66,6 +161,7 @@ class Position():
        self.fin_loc = [0 ,0 , 0]
        
 
+
        # these are the variable we store the values of rcRoll, rcPitch, rcYaw and rcThrottle to publish to the attitude_controller node
        #[rcRoll, rcPitch, rcYaw, rcThrottle]
        self.setpoint_cmd = edrone_cmd()
@@ -75,9 +171,14 @@ class Position():
        self.setpoint_cmd.rcThrottle = 1500.0
 
        # settings of Kp, Ki and Kd for [latitude, longitude, altitude]
-       self.K_p = [ 800*50000,  800*50000, 4000*0.1]
-       self.K_i = [   9.9*0.1,      9.9*0.1, 950*0.001]
-       self.K_d = [ 3319*500000 ,3319*500000, 5000*2]
+       
+       self.K_p = [ 3250*1000,  3250*1000, 4000*0.1]
+       self.K_i = [   9*0.1,      9*0.1, 950*0.001]
+       self.K_d = [ 5000*100000 ,5000*100000, 5000*2]
+
+       #self.K_p = [ 218*50000,  218*50000, 4000*0.1] #'''[1130*50000,1130*50000,4000*0.1]'''
+       #self.K_i = [   9.9*0.1,      9.9*0.1, 950*0.001] #'''[10*0.1,10*0.1,950*0.001]'''
+       #self.K_d =[ 1224*500000 ,1030*500000, 5000*2]  #'''[4370*500000,4370*500000,5000*2]'''
 
        # previous values of error for differential part of PID   
        # [latitude previous error, longitude previous error, altitude previous error] 
@@ -210,7 +311,7 @@ class Position():
        self.setpoint_cmd.rcRoll     = 1500 + self.pid_terms[0]
        self.setpoint_cmd.rcPitch    = 1500 + self.pid_terms[1]
        self.setpoint_cmd.rcYaw      = 1500 
-       self.setpoint_cmd.rcThrottle = 1500 + self.pid_terms[2]
+       self.setpoint_cmd.rcThrottle = 1000 + self.pid_terms[2]
 
        # Limiting the value of commands to a minimum of 1000
        if self.setpoint_cmd.rcRoll > self.max_values[0]:
@@ -247,16 +348,49 @@ class Position():
       
        # checking what it has to travel more latitude or longtitude and then creating waypoints depending on that
        if abs(initial_location[0] - final_location[0]) > abs(initial_location[1] - final_location[1]):
-       		self.way_points_no = abs(int((initial_location[0] - final_location[0])/ (self.length_btw_waypoint_latitude))) 
+                self.way_points_no = abs(int((initial_location[0] - final_location[0])/ (self.length_btw_waypoint_latitude))) 
                 print("waypoints lat")
                 print(abs(initial_location[0] - final_location[0]))
+       
+                for i in range(self.way_points_no + 2):                                                                      
+                    if (initial_location[0] >= final_location[0]): 
+	                self.way_points_latitude.append(initial_location[0] - (self.length_btw_waypoint_latitude) * i)
+	
+	            else:
+                        self.way_points_latitude.append(initial_location[0] + (self.length_btw_waypoint_latitude) * i)
+                self.way_points_latitude[-1] = final_location[0]  #we store the final waypoint as final location so that the drone always goes to it
 
+                for i in range(self.way_points_no + 2): 
+                    self.length_btw_waypoint_longitude = abs((initial_location[1] - final_location[1]))/(self.way_points_no)                                                             
+	            if (initial_location[1] >= final_location[1]):  
+	                self.way_points_longitude.append(initial_location[1] + (self.length_btw_waypoint_longitude) * i)
+	
+	            else :
+                        self.way_points_longitude.append(initial_location[1] - (self.length_btw_waypoint_longitude) * i)
+                self.way_points_longitude[-1] = final_location[1]
        else :
 		self.way_points_no = abs(int((initial_location[1] - final_location[1])/ (self.length_btw_waypoint_longitude)))
                 print("waypoints long")
                 print(abs(initial_location[1] - final_location[1]))
+                   
+                for i in range (self.way_points_no + 2):
+                    self.length_btw_waypoint_latitude = abs((initial_location[0] - final_location[0]))/(self.way_points_no)                                                           
+	            if (initial_location[0] >= final_location[0]): 
+	                self.way_points_latitude.append(initial_location[0] - (self.length_btw_waypoint_latitude) * i)
+	
+	            else:
+                        self.way_points_latitude.append(initial_location[0] + (self.length_btw_waypoint_latitude) * i)
+                self.way_points_latitude[-1] = final_location[0]
 
-       #creating waypoints for latitude 
+                for i in range(self.way_points_no + 2):                                                            
+	            if (initial_location[1] >= final_location[1]):  
+	                self.way_points_longitude.append(initial_location[1] + (self.length_btw_waypoint_longitude) * i)
+	
+	            else :
+                        self.way_points_longitude.append(initial_location[1] - (self.length_btw_waypoint_longitude) * i)
+                 
+
+       '''#creating waypoints for latitude 
        for i in range(self.way_points_no + 2):                                                                      
 	   if (initial_location[0] >= final_location[0]): 
 	       self.way_points_latitude.append(initial_location[0] - (self.length_btw_waypoint_latitude) * i)
@@ -276,7 +410,7 @@ class Position():
                self.way_points_longitude.append(initial_location[1] + (self.length_btw_waypoint_longitude) * i)	
 
        self.way_points_longitude[-1] = final_location[1]  #we store the final waypoint as final location so that the drone always goes to it
-       #print('waypoint',self.way_points_longitude)
+       #print('waypoint',self.way_points_longitude)'''
 
    # Function for obstacle avoid, it gets data from the range_finder_top and currently its looking only for the direction of travel.
    def Obstacle_avoid(self,fin_loc):
@@ -477,47 +611,59 @@ class Position():
                self.doh[3] = 1
 
 
+   def Return(self,current):
+       self.R_distance = []
+       for i in range(len(self.R_numbers)):
+           t = math.sqrt(((self.lat_to_x(self.R_numbers[i][0]) - self.lat_to_x(current[0]))**2) + ((self.long_to_y(self.R_numbers[i][1]) - self.long_to_y(current[1]))**2))
+	   self.R_distance.append(t)
+       #print("R_distance",self.R_distance)
+
+       #R_f = distance   ,   R_t = ['X1','X2'......]
+       self.U = [x for _,x in sorted(zip(self.R_distance,self.R_numbers))]
+       #print("R_f",self.R_f)
+       self.W = [x for _,x in sorted(zip(self.R_distance,self.R_t))]
+       #print("R_t",self.R_t)
+
+       #LOCATION =[p.D[p.W[0]][0],p.D[p.W[0]][1],p.D[p.W[0]][2]+4]
+
+       
+
+
+
+
 if __name__ == '__main__':
 
     p = Position()
     r = rospy.Rate(30)
 
-    #location of boxes 
-    A_1 = [18.9999864489,71.9999430161,8.44099749139]
-    B_2 = [18.9999864489 + p.x_to_lat(1.5),71.9999430161 - p.y_to_long(1.5),8.44099749139]
-    C_1 = [18.9999864489+p.x_to_lat(3),71.9999430161,8.44099749139]
-    
-    #stores the initial location of the box.
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    final_loc = [p.pos_current[0],p.pos_current[1],p.pos_current[2]+1]
-    
-    # drones goes up by 1m
-    while not (p.pos_current[2] >= initial_location[2]+1):
-	p.PID(initial_location[0] , initial_location[1] , initial_location[2] + 1)
-        print(' drones goes up by 1m')
-	r.sleep()
-    #stores the initial location of the box at the start 
-    initial_location_at_start = p.initial
-    initial_location = [p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    
-    # evaluating the condition.
-    condition = p.travel(initial_location,A_1)
+    current = p.initial  #latitude: 18.9998887906 longitude: 72.0002184401 altitude: 16.757981
 
-    # drone travels to pick the box at A-1
-    '''while not condition:
-        p.PID(A_1[0],A_1[1],A_1[2])
-        condition = p.travel(initial_location,A_1)
-        print('drone travels to pick the box at A-1')
-        r.sleep()'''
 
-    while not (p.pos_current[0] <= A_1[0] and p.pos_current[1] <=A_1[1] and p.pos_current[2]>= A_1[2] + 1):
-        p.PID(A_1[0],A_1[1],A_1[2]+1)
-        
+  
+
+
+    '''while not (p.pos_current[2] >= current[2]+4):
+        p.PID(current[0] , current[1] , current[2]+4)
+        print("moving up")
         r.sleep()
+
+    current = [p.pos_current[0] , p.pos_current[1] , p.pos_current[2]]'''
+    final=[p.D[p.Z[0]][0],p.D[p.Z[0]][1],p.D[p.Z[0]][2]+4]
+    condition = p.travel(current,final)
+    print(current)
+    print(final)
+
+    
+
+    while not condition:
+	p.PID(final[0],final[1],final[2])
+        condition = p.travel(current,final)
+	print("above box")
+	r.sleep()
 
     #drone goes down until it is ready to pick up the box
     while not p.gripper_act == "True":
-        p.PID(A_1[0],A_1[1],A_1[2])
+        p.PID(final[0],final[1],final[2]-4)
         print('drone goes down until it is ready to pick up the box')
         r.sleep()  
 
@@ -528,66 +674,52 @@ if __name__ == '__main__':
     activate.wait_for_service()
     activate.call(x.activate_gripper)
     print('box is attached to the drone')
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    
-    # drones goes up after picking the box 
-    while not (p.pos_current[2] >=p.data[0][3]+4):
-	p.PID(initial_location[0],initial_location[1],p.data[0][3]+4)
-        print('drones goes up after picking the box')
+
+    '''current =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    final=[p.Y[0][0],p.Y[0][1],p.Y[0][2]+4]
+    while not (p.pos_current[2] <= final[2]+4):
+        p.PID(current[0] , current[1] , final[2]+4)
+        print("going up")
+        r.sleep()'''
+
+    current = [p.pos_current[0] , p.pos_current[1] , p.pos_current[2]+4]
+    final=[p.Y[0][0],p.Y[0][1],p.Y[0][2]+4]
+    condition = p.travel(current,final)
+
+    while not condition:
+	p.PID(final[0],final[1],final[2])
+        condition = p.travel(current,final)
+	print("Building C1")
 	r.sleep()
-
-    # storing initial location and final location for condition
-    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    final_loc=[p.data[0][1],p.data[0][2],p.data[0][3]+4]
-    k = 1  
-    #path planning to the building 
-    p.Path_Planning(initial_loc,final_loc)   
- 
-    # traveling in waypoints 
-    while  (k < (p.way_points_no + 2)):
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4)
-        p.Obstacle_avoid(final_loc)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, final_loc)
-	    k = 1
-            p.r = False
-
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[0][3]+4]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4] 
-        condition = p.travel(initial_loc , final_location)
-        print('going to building A-1..')
-        if (condition) :
-            k+=1  
-	  
-
-    #search algorithm 
+        
+    #searching algorithm
     i = 1
     while p.l == 0:
 	
-	p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 1 + 2.5*i)
+	p.PID(final[0] , final[1] , final[2] + 1 +2.5*i)
 	r.sleep()
         print('going up until marker is found..')
-	if p.pos_current[2] >= p.data[0][3] + 1 + 2.5*i :
+	if p.pos_current[2] >= final[2] + 1 + 2.5*i :
 		i =i+1
 
     # condition for going to the marker 
-    initial_loc = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
-    b,a = p.find_marker(p.data[0][3])
-    final_location = [initial_loc [0]-a , initial_loc [1]+b , initial_loc [2]]
-    condition = p.travel(initial_loc  , final_location)
+    current = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
+    b,a = p.find_marker(final[2])
+    final = [current[0]-a , current[1]+b , current[2]]
+    condition = p.travel(current,final)
  
     # going to the marker 
     while not (condition):
 	
-	condition = p.travel(initial_loc , final_location)
-	p.PID(initial_loc [0] - a,initial_loc [1] + b,initial_loc[2])
+	condition = p.travel(current,final)
+	p.PID(final[0] ,final[1] ,final[2])
         print('going to the marker...')
         r.sleep()
-    # going down to the marker
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    while not (p.pos_current[2] <=p.data[0][3]+0.37):
-	p.PID(initial_location[0],initial_location[1],p.data[0][3])
+
+    #going down to the marker
+    current =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    while not (p.pos_current[2] <= final[2]+0.37):
+	p.PID(current[0], current[1], final[0][3])
         print('going down to the marker...')
 	r.sleep()
 
@@ -597,270 +729,89 @@ if __name__ == '__main__':
     print('box is droped gently (becuase its not a bomb :D)')
 
     # going up 
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    while not (p.pos_current[2] >=p.data[0][3]+4):
-	p.PID(initial_location[0],initial_location[1],p.data[0][3]+4)
+    current =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    while not (p.pos_current[2] >=final[2]):
+	p.PID(current[0],current[1],final[2]+4)
         print('going up')
 	r.sleep()
-   
-    # conditions
-    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    final_loc=[C_1[0],C_1[1],p.data[0][3]+4]
-    k = 1  
-    #path planning for back to get the box at C-2
-    p.Path_Planning(initial_loc,final_loc)   
-    
-    # traveling in waypoints
-    while  (k < (p.way_points_no + 2)):
-       
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4)
-        p.Obstacle_avoid(final_loc)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, final_loc)
-	    k = 1
-            p.r = False
-	
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[0][3]+4]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[0][3]+4] 
-        condition = p.travel(initial_loc , final_location)
-        print('going to pick the box at C-1..')
 
-        if (condition) :
-            k+=1  
-	   
-    #drone goes down until it is ready to pick up the box
+    current = [p.pos_current[0] , p.pos_current[1] , p.pos_current[2]+4]
+
+    p.Return(current)
+    final=[p.U[0][0], p.U[0][1], p.U[0][2]+4]
+    
+    condition = p.travel(current,final)
+
+    while not condition:
+	p.PID(final[0],final[1],final[2])
+        condition = p.travel(current,final)
+	print("going for return")
+	r.sleep()
+
     while not p.gripper_act == "True":
-        p.PID(C_1[0],C_1[1],C_1[2])
-        r.sleep()
-   
+        p.PID(final[0],final[1],final[2]-4)
+        print('drone goes down until it is ready to pick up the box')
+        r.sleep()  
+
     # activates the gripper 		
     x = Gripper()
     x.activate_gripper = True
     activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
     activate.wait_for_service()
     activate.call(x.activate_gripper)
-
     print('box is attached to the drone')
 
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    #going up 
-    while not (p.pos_current[2] >=p.data[1][3]+4):
-	p.PID(initial_location[0],initial_location[1],p.data[1][3]+4)
-	r.sleep()
-        print('going up')
+    current =[p.pos_current[0],p.pos_current[1],p.pos_current[2]+4]
 
-    # conditions 
-    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]    
-    final_loc=[p.data[1][1],p.data[1][2],p.data[1][3]+4]
-    k = 1  
-    # path planning to the building C-1
-    p.Path_Planning(initial_loc,final_loc)   
-   
-    # travelling in waypoints 
-    while  (k < (p.way_points_no + 2)):
-      
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4)
-        p.Obstacle_avoid(final_loc)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, final_loc)
-	    k = 1
-            p.r = False
-
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[1][3]+4]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4] 
-        condition = p.travel(initial_loc , final_location)
-        print('going to building C-1..')
-        if (condition) :
-            k+=1  
-    #search algorithm
-    i = 1
-    while p.l == 0:
-	
-	p.PID(p.data[0][1],p.data[0][2],p.data[0][3] + 0.5*i)
-	r.sleep()
-        print('going up until marker is found..')
-	if p.pos_current[2] >= p.data[0][3] + 0.5*i :
-	 	i =i+1
-    # conditions 
-    initial_loc = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
-    b,a = p.find_marker(p.data[1][3])
-    final_location = [initial_loc [0]-a , initial_loc [1]+b , initial_loc [2]]
-    condition = p.travel(initial_loc  , final_location)
-   
-    # traveling to the marker 
-    while not (condition):
-	condition = p.travel(initial_loc , final_location)
-	p.PID(initial_loc [0] - a,initial_loc [1] + b,initial_loc[2])
-        print('going to the marker...')
+    while not (p.pos_current[2] <= current[2]):
+        p.PID(current[0] , current[1] , current[2])
+        print("going up")
         r.sleep()
 
-    #going down to the marker 
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    while not (p.pos_current[2] <=p.data[1][3]+0.26):
-	p.PID(initial_location[0],initial_location[1],p.data[1][3])
-        print('going down to the marker')
+    current = [p.pos_current[0] , p.pos_current[1] , p.pos_current[2]+4]
+    final=[p.D[p.W[0]][0],p.D[p.W[0]][1],p.D[p.W[0]][2]+4]
+    condition = p.travel(current,final)
+
+    while not condition :
+	p.PID(final[0],final[1],final[2])
+        condition = p.travel(current,final)
+	print("going to return grid")
+	r.sleep()
+
+    current =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+    while not (p.pos_current[2] <= final[2]+0.37):
+	p.PID(current[0], current[1], final[0][3])
+        print('going down to the grid')
 	r.sleep()
 
     x.activate_gripper = False
     activate.wait_for_service()
     activate.call(x.activate_gripper)
     print('box is droped gently (becuase its not a bomb :D)')
-   
-    #going up after droping the box
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    while not (p.pos_current[2] >=p.data[1][3]+4):
-	p.PID(initial_location[0],initial_location[1],p.data[1][3]+4)
-        print('going up..')
-	r.sleep()
-  
-    # condition
-    initial_loc =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-    final_loc=[B_2[0],B_2[1],p.data[1][3]+4]
-    k = 1  
 
-    # path planning back to pick the box at B-2
-    p.Path_Planning(initial_loc,final_loc)  
-   
-    # travelling in waypoints 
-    while  (k < (p.way_points_no + 2)):
-       
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4)
-        p.Obstacle_avoid(final_loc)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, final_loc)
-	    k = 1
-            p.r = False
-	print('travelling back to pick the box at B-2..')
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[1][3]+4]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[1][3]+4] 
-        condition = p.travel(initial_loc , final_location)
 
-        if (condition) :
-            k+=1  
-    #drone goes down until it is ready to pick up the box
-    while not p.gripper_act == "True":
-        p.PID(B_2[0],B_2[1],B_2[2])
-        r.sleep()  
+
+
+
+
+
+
+
     
-    x = Gripper()
-    x.activate_gripper = True
-    activate = rospy.ServiceProxy('/edrone/activate_gripper' , Gripper )
-    activate.wait_for_service()
-    activate.call(x.activate_gripper)
-    print('box is attached to the drone')
+
     
-    #condtions 
-    p.fin_loc = [p.data[2][1],p.data[2][2],p.data[2][3]+4]
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
+
+
+
    
-    #going up 
-    while not (p.pos_current[2] >=p.data[2][3]+4):
-	p.PID(initial_location[0],initial_location[1],p.data[2][3]+4)
-        print('going up')
-	r.sleep()
 
-    # going up final location height 
-    k=1
-    while (p.pos_current[2] <= p.fin_loc[2]):
-	p.PID(B_2[0] , B_2[1] , p.fin_loc[2])
-	r.sleep()
 
-    initial_location =[p.pos_current[0],p.pos_current[1],p.pos_current[2]]
-   
-    #path planning to the location of building B-2	
-    p.Path_Planning(initial_location, p.fin_loc)
 
-    # travelling in waypoints 
-    while  (k < (p.way_points_no + 2)):
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k],p.fin_loc[2])
-        p.Obstacle_avoid(p.fin_loc)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, p.fin_loc)
-	    k = 1
-            p.r = False
-        print('going towards the building B-2..')
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.fin_loc[2]]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.fin_loc[2]] 
-        condition = p.travel(initial_loc , final_location)
-
-        if (condition) :
-            k+=1  
-	    
-    # search algorithm
-    i = 1
-    while p.l == 0:
-	p.PID(p.data[2][1],p.data[2][2],p.data[2][3] + 1 + 2*i)
-	r.sleep()
-	if p.pos_current[2] >= p.data[2][3] + 1 + 2*i :
-		i =i+1
-    #condition
-    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
-    b,a = p.find_marker(p.data[2][3])
-    final_location = [current_location[0]-a , current_location[1]+b , current_location[2]]
-    condition = p.travel(current_location , final_location) 
-    # travelling to the marker 
-    while not (condition):
-	
-	condition = p.travel(current_location , final_location)
-	p.PID(current_location[0] - a,current_location[1] + b,current_location[2])
-        print('going to the marker')
-        r.sleep()
-
-    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]]
-     
-    #going down to drop the box      
-    while not (p.pos_current[2]<=p.data[2][3]+0.26):
-        p.PID(current_location[0],current_location[1],p.data[2][3])
-        print("droping the box..")
-        print(p.pos_current[2])
-        r.sleep()
-
-    x.activate_gripper = False
-    activate.wait_for_service()
-    activate.call(x.activate_gripper)
-    print('box is droped gently (becuase its not a bomb :D)')
-      
-    # going up
-    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
-    while (p.pos_current[2] <= p.data[2][3]+2):
-	p.PID(current_location[0], current_location[1], p.data[2][3]+2)
-	r.sleep()
-        print('going up..')
     
-    # condition
-    current_location = [p.pos_current[0] ,p.pos_current[1] ,p.pos_current[2]] 
-    k = 1  
-    # path planning back to the initial location 
-    p.Path_Planning(current_location , initial_location_at_start )   
-    while  (k < (p.way_points_no + 2)):
-      
-        p.PID(p.way_points_latitude[k], p.way_points_longitude[k], p.data[2][3]+2)
-        p.Obstacle_avoid(initial_location_at_start)
-        r.sleep()
-        if (p.r == True):
-	    p.Path_Planning(p.pos_after_obs, initial_location_at_start)
-	    k = 1
-            p.r = False
-        print('going back to the initial location at the start of the run..')
-        initial_loc = [p.way_points_latitude[k-1], p.way_points_longitude[k-1], p.data[2][3]+2]  
-	final_location =  [p.way_points_latitude[k], p.way_points_longitude[k], p.data[2][3]+2] 
-        condition = p.travel(initial_loc , final_location)
-
-        if (condition) :
-            k+=1  
-	  
-
-
-    while (p.pos_current[2] >= initial_location_at_start[2]):
-	p.PID(initial_location_at_start[0],initial_location_at_start[1],initial_location_at_start[2])
-        print('going back to the initial location at the start of the run..')
-	r.sleep()
-    print('task complete')
-
+    
+    
+   
+   
 
     
 

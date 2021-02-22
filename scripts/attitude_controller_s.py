@@ -25,7 +25,7 @@ class Edrone():
         self.drone_orientation_euler = [0.0, 0.0, 0.0]
 
         # This is the setpoint that will be received from the drone_command in the range from 1000 to 2000
-        # [r_setpoint, p_setpoint, y_setpoint]
+        # [r_setpoint, p_setpoint, y_setpoint,t_setpoint]
         self.setpoint_cmd = [1500, 1500, 1500, 1000]
 
         # The setpoint of orientation in euler angles at which you want to stabilize the drone
@@ -40,9 +40,15 @@ class Edrone():
         self.pwm_cmd.prop4 = 0.0
 
         #setting of Kp, Kd and ki for [roll, pitch, yaw].
+        
+        
         self.Kp = [82*0.01, 175*0.01, 1223*0.1]
-        self.Ki = [0*0.001, 0*0.001, 96*0.001]
-        self.Kd = [50*0.2, 153*0.2, 0*2]
+        self.Ki = [500*0.001, 500*0.001, 96*0.001]
+        self.Kd = [52*0.2, 153*0.2, 0*2]
+
+        #self.Kp = [1000*0.01, 1000*0.01, 1223*0.1]
+        #self.Ki = [100*0.001, 100*0.001, 96*0.001]
+        #self.Kd = [217*0.2, 217*0.2, 0*2]
         
         
         # previous values of error for differential part of PID
@@ -63,7 +69,7 @@ class Edrone():
         self.iterm = [0.0, 0.0, 0.0]
     
         # This is the sample time in which you need to run pid. Choose any time which you seem fit. Remember the stimulation step time is 50 ms
-        self.sample_time = 30
+        self.sample_time = 20
 
         # Publishing /edrone/pwm
         self.pwm_pub = rospy.Publisher('/edrone/pwm', prop_speed, queue_size=1)
@@ -130,7 +136,7 @@ class Edrone():
         self.pwm_cmd.prop1 = Throttle + Roll + Yaw + Pitch  
 
         # back right 
-        self.pwm_cmd.prop2 = Throttle + Roll - Yaw - Pitch  
+        self.pwm_cmd.prop2 = Throttle + Roll - Yaw + Pitch  
 
         # back left
         self.pwm_cmd.prop3 = Throttle - Roll + Yaw + Pitch  
@@ -178,7 +184,7 @@ class Edrone():
 if __name__ == '__main__':
 
     e_drone = Edrone()
-    r = rospy.Rate(e_drone.sample_time)  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
+    r = rospy.Rate(30)  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
     while not rospy.is_shutdown():
         e_drone.pid()
         r.sleep()
