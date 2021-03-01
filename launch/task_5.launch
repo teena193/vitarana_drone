@@ -5,6 +5,17 @@
             file="$(find gazebo_ros)/launch/empty_world.launch">
             <arg name="world_name"  value="$(find vitarana_drone)/worlds/city$(arg static).world"/>
         </include>
+	<arg name="record" default="true"/>
+	<arg name="duration" default="520"/>
+	<arg name="rec_name" default="Task_5_VD.bag"/>
+
+
+	<group if="$(arg record)">
+	    <node name="rosbag_record_position" pkg="rosbag" type="record"
+	       args="record -O $(find vitarana_drone)/bag_files/$(arg rec_name) --duration=$(arg duration) /gazebo/model_states_throttle" output="screen"/>
+
+	</group>
+
 	    <node name="throttler_model_states" type="throttle" pkg="topic_tools" args="messages /gazebo/model_states 3"/>
 	    <node name="throttler_gps" type="throttle" pkg="topic_tools" args="messages /edrone/gps 3"/>
 	    <node name="gripper_service" type="gripper_service.py" pkg="vitarana_drone"/>

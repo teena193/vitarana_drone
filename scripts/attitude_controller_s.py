@@ -107,12 +107,13 @@ class Edrone():
         self.setpoint_euler[0] = self.setpoint_cmd[0] * 0.02 - 30
         self.setpoint_euler[1] = self.setpoint_cmd[1] * 0.02 - 30
         self.setpoint_euler[2] = self.setpoint_cmd[2] * 0.02 - 30
-        
+        print(self.setpoint_euler)
+        print("orient",self.drone_orientation_euler)
         # Calculating the error terms 
         self.error[0] = math.degrees(self.drone_orientation_euler[0]) - self.setpoint_euler[0]
-        self.error[1] = math.degrees(self.drone_orientation_euler[1]) - self.setpoint_euler[1] 
+        self.error[1] = -(math.degrees(self.drone_orientation_euler[1]) - self.setpoint_euler[1]) 
         self.error[2] = math.degrees(self.drone_orientation_euler[2]) - self.setpoint_euler[2]
-                     
+        print("after orient",math.degrees(self.drone_orientation_euler[0]))            
   
         # Converting the throttle from the range of 1000 to 2000 to 0 - 1024
         Throttle = self.setpoint_cmd[3]*1.024 -1024
@@ -136,7 +137,7 @@ class Edrone():
         self.pwm_cmd.prop1 = Throttle + Roll + Yaw + Pitch  
 
         # back right 
-        self.pwm_cmd.prop2 = Throttle + Roll - Yaw + Pitch  
+        self.pwm_cmd.prop2 = Throttle + Roll - Yaw - Pitch  
 
         # back left
         self.pwm_cmd.prop3 = Throttle - Roll + Yaw + Pitch  
@@ -184,7 +185,7 @@ class Edrone():
 if __name__ == '__main__':
 
     e_drone = Edrone()
-    r = rospy.Rate(30)  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
+    r = rospy.Rate(100)  # specify rate in Hz based upon your desired PID sampling time, i.e. if desired sample time is 33ms specify rate as 30Hz
     while not rospy.is_shutdown():
         e_drone.pid()
         r.sleep()
